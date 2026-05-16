@@ -223,14 +223,17 @@ const HTML = `<!DOCTYPE html>
     .eval { margin-left: auto; font-size: 0.9rem; font-family: monospace; font-weight: 600; }
     .pos { color: #6fdc8c; } .neg { color: #ff8b8b; } .neu { color: #a8b4d0; }
     .chess-board {
-      display: grid; grid-template-columns: repeat(8, 1fr);
-      width: 100%; max-width: 256px; aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(8, 28px);
+      grid-template-rows: repeat(8, 28px);
+      width: 224px; height: 224px;
       margin: 12px auto 0; border: 2px solid #3a3a5a;
-      border-radius: 4px; overflow: hidden;
+      border-radius: 4px; overflow: hidden; flex-shrink: 0;
     }
     .chess-board > div {
+      width: 28px; height: 28px; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.55rem; line-height: 1; user-select: none;
+      font-size: 1.1rem; line-height: 1; user-select: none;
     }
     .sq-light { background: #f0d9b5; }
     .sq-dark  { background: #b58863; }
@@ -383,6 +386,7 @@ const HTML = `<!DOCTYPE html>
         if (/\d/.test(ch)) for (let i = 0; i < +ch; i++) rank.push(null);
         else rank.push(ch);
       }
+      while (rank.length < 8) rank.push(null); // pad malformed rows
       return rank;
     });
   }
@@ -415,13 +419,13 @@ const HTML = `<!DOCTYPE html>
         const light = (r + f) % 2 === 1;
         const isFrom = r === fr && f === ff;
         const isTo   = r === tr && f === tf;
-        const p = board[r][f];
+        const p = (board[r] || [])[f] || null;
         const isWhite = p && p === p.toUpperCase();
         let cls = light ? 'sq-light' : 'sq-dark';
         if (isFrom) cls += ' sq-from';
         if (isTo)   cls += ' sq-to';
         if (p) cls += isWhite ? ' pc-w' : ' pc-b';
-        html += \`<div class="\${cls}">\${p ? SYM[p] : ''}</div>\`;
+        html += \`<div class="\${cls}">\${p && SYM[p] ? SYM[p] : ''}</div>\`;
       }
     }
     return html + '</div>';
