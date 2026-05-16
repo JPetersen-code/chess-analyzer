@@ -175,12 +175,20 @@ const HTML = `<!DOCTYPE html>
       cursor: pointer; font-size: 1rem;
       display: flex; align-items: center; justify-content: center;
     }
+    .attach-btn {
+      width: 100%; padding: 12px;
+      background: #1e2d4a; color: #a8b4d0;
+      border: 1px solid #2a3a5a; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      margin-top: 12px; transition: border-color 0.2s, color 0.2s;
+    }
+    .attach-btn:hover { border-color: #e2c98a; color: #e2c98a; }
     .analyze-btn {
       width: 100%; padding: 14px;
       background: #e2c98a; color: #1a1a2e;
       border: none; border-radius: 10px;
       font-size: 1rem; font-weight: 700; cursor: pointer;
-      transition: opacity 0.2s; margin-top: 14px;
+      transition: opacity 0.2s; margin-top: 10px;
     }
     .analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .analyze-btn:not(:disabled):hover { opacity: 0.88; }
@@ -241,6 +249,8 @@ const HTML = `<!DOCTYPE html>
       <img id="preview" style="display:none" alt="">
       <button class="clear-btn" id="clearBtn" style="display:none" onclick="clearImage(event)">&#10005;</button>
     </div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(event)">
+    <button class="attach-btn" onclick="document.getElementById('fileInput').click()">&#128247; Attach Screenshot</button>
     <button class="analyze-btn" id="analyzeBtn" onclick="analyze()" disabled>Analyze Position</button>
   </div>
 
@@ -280,6 +290,12 @@ const HTML = `<!DOCTYPE html>
     document.getElementById('pasteZone').classList.remove('has-image');
     document.getElementById('analyzeBtn').disabled = true;
     document.getElementById('resultsCard').style.display = 'none';
+  }
+
+  function handleFile(e) {
+    const f = e.target.files[0];
+    if (f) { imageBlob = f; showPreview(f); }
+    e.target.value = '';
   }
 
   const zone = document.getElementById('pasteZone');
