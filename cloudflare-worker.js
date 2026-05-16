@@ -129,7 +129,7 @@ const HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chess Analyzer</title>
+  <title>Joe's Chess Screenshot Analyzer</title>
   <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -236,8 +236,11 @@ const HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>Chess Analyzer</h1>
-  <p class="sub">Paste a screenshot &rarr; get the top 3 moves instantly</p>
+  <h1>Joe's Chess Screenshot Analyzer</h1>
+  <p class="sub">Upload a screenshot of your chess game to see the top 3 moves for any position.</p>
+  <p class="sub" style="max-width:420px; text-align:center; margin-bottom:24px;">
+    Built for post-game study and practice against AI &mdash; not for use during games against real people.
+  </p>
 
   <div class="card">
     <div class="paste-zone" id="pasteZone" tabindex="0">
