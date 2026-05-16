@@ -130,7 +130,6 @@ const HTML = `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Joe's Chess Screenshot Analyzer</title>
-  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -223,9 +222,22 @@ const HTML = `<!DOCTYPE html>
     .continuation { font-size: 0.75rem; color: #555; font-family: monospace; }
     .eval { margin-left: auto; font-size: 0.9rem; font-family: monospace; font-weight: 600; }
     .pos { color: #6fdc8c; } .neg { color: #ff8b8b; } .neu { color: #a8b4d0; }
-    .mini-board { width: 240px; margin: 8px auto 0; }
-    .sq-from { background: rgba(220, 80, 80, 0.55) !important; }
-    .sq-to   { background: rgba(80, 200, 80, 0.55) !important; }
+    .chess-board {
+      display: grid; grid-template-columns: repeat(8, 1fr);
+      width: 100%; max-width: 256px; aspect-ratio: 1;
+      margin: 12px auto 0; border: 2px solid #3a3a5a;
+      border-radius: 4px; overflow: hidden;
+    }
+    .chess-board > div {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.55rem; line-height: 1; user-select: none;
+    }
+    .sq-light { background: #f0d9b5; }
+    .sq-dark  { background: #b58863; }
+    .sq-from  { background: rgba(210, 60, 60, 0.72) !important; }
+    .sq-to    { background: rgba(60, 200, 60, 0.72) !important; }
+    .pc-w { color: #fff; text-shadow: 0 0 3px #000, 0 0 1px #000; }
+    .pc-b { color: #111; text-shadow: 0 0 3px rgba(255,255,255,0.4); }
     .error-box {
       background: #2a1a1a; border: 1px solid #5a2a2a;
       border-radius: 8px; padding: 14px;
@@ -341,8 +353,7 @@ const HTML = `<!DOCTYPE html>
         results.innerHTML = fenHtml + '<p class="status-text"><span class="spinner"></span>Running Stockfish engine locally&hellip;</p>';
         try {
           const pvs = await analyzeWithStockfish(fen);
-          results.innerHTML = fenHtml + '<div class="depth-info">Stockfish local analysis</div>' + renderCards(pvs);
-          initBoards(pvs, fen);
+          results.innerHTML = fenHtml + '<div class="depth-info">Stockfish local analysis</div>' + renderCards(pvs, fen);
         } catch (err) {
           results.innerHTML = fenHtml + \`<div class="error-box">Engine error: \${err.message}</div>\`;
         }
@@ -351,8 +362,7 @@ const HTML = `<!DOCTYPE html>
 
       const pvs = moves.pvs || [];
       const depth = moves.depth ? \`<div class="depth-info">Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess</a></div>\` : '';
-      results.innerHTML = fenHtml + depth + renderCards(pvs);
-      initBoards(pvs, fen);
+      results.innerHTML = fenHtml + depth + renderCards(pvs, fen);
 
     } catch (err) {
       results.innerHTML = \`<div class="error-box">Request failed: \${err.message}</div>\`;
@@ -361,54 +371,94 @@ const HTML = `<!DOCTYPE html>
     }
   }
 
-  function renderCards(pvs) {
+  const SYM = {
+    K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',
+    k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟',
+  };
+
+  function parseFenBoard(fen) {
+    return fen.split(' ')[0].split('/').map(row => {
+      const rank = [];
+      for (const ch of row) {
+        if (/\d/.test(ch)) for (let i = 0; i < +ch; i++) rank.push(null);
+        else rank.push(ch);
+      }
+      return rank;
+    });
+  }
+
+  function applyUci(board, uci) {
+    const b = board.map(r => [...r]);
+    const ff = uci.charCodeAt(0) - 97, fr = 8 - +uci[1];
+    const tf = uci.charCodeAt(2) - 97, tr = 8 - +uci[3];
+    const promo = uci[4];
+    const piece = b[fr][ff];
+    const wasEmpty = b[tr][tf] === null;
+    b[fr][ff] = null;
+    b[tr][tf] = promo ? (piece === piece.toUpperCase() ? promo.toUpperCase() : promo) : piece;
+    // castling
+    if ((piece === 'K' || piece === 'k') && Math.abs(tf - ff) === 2) {
+      if (tf === 6) { b[fr][5] = b[fr][7]; b[fr][7] = null; }
+      else          { b[fr][3] = b[fr][0]; b[fr][0] = null; }
+    }
+    // en passant
+    if ((piece === 'P' || piece === 'p') && ff !== tf && wasEmpty) b[fr][tf] = null;
+    return b;
+  }
+
+  function renderBoard(board, fromSq, toSq) {
+    const ff = fromSq.charCodeAt(0)-97, fr = 8-+fromSq[1];
+    const tf = toSq.charCodeAt(0)-97,   tr = 8-+toSq[1];
+    let html = '<div class="chess-board">';
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const light = (r + f) % 2 === 1;
+        const isFrom = r === fr && f === ff;
+        const isTo   = r === tr && f === tf;
+        const p = board[r][f];
+        const isWhite = p && p === p.toUpperCase();
+        let cls = light ? 'sq-light' : 'sq-dark';
+        if (isFrom) cls += ' sq-from';
+        if (isTo)   cls += ' sq-to';
+        if (p) cls += isWhite ? ' pc-w' : ' pc-b';
+        html += \`<div class="\${cls}">\${p ? SYM[p] : ''}</div>\`;
+      }
+    }
+    return html + '</div>';
+  }
+
+  function renderCards(pvs, baseFen) {
+    const board = parseFenBoard(baseFen);
     return pvs.slice(0, 3).map((pv, i) => {
       const ms = (pv.moves || '').split(' ');
-      const best = ms[0] || '?';
+      const uci = ms[0] || '';
       const cont = ms.slice(1, 4).join(' ');
       let ev = '', cls = 'neu';
       if (pv.cp !== undefined) {
         ev = (pv.cp > 0 ? '+' : '') + (pv.cp / 100).toFixed(2);
         cls = pv.cp > 30 ? 'pos' : pv.cp < -30 ? 'neg' : 'neu';
       } else if (pv.mate !== undefined) {
-        ev = 'M' + pv.mate;
-        cls = pv.mate > 0 ? 'pos' : 'neg';
+        ev = 'M' + pv.mate; cls = pv.mate > 0 ? 'pos' : 'neg';
+      }
+      let boardHtml = '';
+      if (uci.length >= 4) {
+        try {
+          const newBoard = applyUci(board, uci);
+          boardHtml = renderBoard(newBoard, uci.slice(0,2), uci.slice(2,4));
+        } catch(e) {}
       }
       return \`<div class="move-card">
         <div class="move-header">
           <div class="rank">#\${i+1}</div>
           <div>
-            <div class="move">\${best}</div>
+            <div class="move">\${uci}</div>
             \${cont ? \`<div class="continuation">\${cont}&hellip;</div>\` : ''}
           </div>
           <div class="eval \${cls}">\${ev}</div>
         </div>
-        <div class="mini-board" id="board-\${i}"></div>
+        \${boardHtml}
       </div>\`;
     }).join('');
-  }
-
-  function initBoards(pvs, baseFen) {
-    if (typeof Chessboard === 'undefined' || typeof Chess === 'undefined') return;
-    pvs.slice(0, 3).forEach((pv, i) => {
-      const uci = (pv.moves || '').split(' ')[0];
-      if (!uci || uci.length < 4) return;
-      const from = uci.slice(0, 2);
-      const to   = uci.slice(2, 4);
-      const promo = uci[4] || 'q';
-      try {
-        const chess = new Chess(baseFen);
-        chess.move({ from, to, promotion: promo });
-        const newFen = chess.fen();
-        Chessboard(\`board-\${i}\`, {
-          position: newFen,
-          pieceTheme: 'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/img/chesspieces/wikipedia/{piece}.png',
-        });
-        // highlight from (red) and to (green) squares
-        \$(\`#board-\${i} .square-\${from}\`).addClass('sq-from');
-        \$(\`#board-\${i} .square-\${to}\`).addClass('sq-to');
-      } catch(e) { /* skip board if move parse fails */ }
-    });
   }
 
   async function analyzeWithStockfish(fen) {
@@ -468,8 +518,5 @@ const HTML = `<!DOCTYPE html>
     });
   }
 <\/script>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"><\/script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"><\/script>
-<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"><\/script>
 </body>
 </html>`;
