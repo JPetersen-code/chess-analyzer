@@ -26,6 +26,15 @@ export default {
       return handleAnalyze(request, env);
     }
 
+    if (request.method === 'GET' && url.pathname === '/debug') {
+      const keySet = !!env.GEMINI_API_KEY;
+      const keyLength = env.GEMINI_API_KEY ? env.GEMINI_API_KEY.length : 0;
+      const keyPreview = env.GEMINI_API_KEY ? env.GEMINI_API_KEY.slice(0, 6) + '...' : 'NOT SET';
+      return new Response(JSON.stringify({ keySet, keyLength, keyPreview }), {
+        headers: { 'Content-Type': 'application/json', ...CORS },
+      });
+    }
+
     return new Response('Not found', { status: 404 });
   },
 };
@@ -306,46 +315,97 @@ const HTML = `<!DOCTYPE html>
       const fenHtml = \`<div class="fen-label">Detected position</div><div class="fen-box">\${fen}</div>\`;
 
       if (lichessNotFound) {
-        results.innerHTML = fenHtml + \`<div class="error-box">
-          This position isn't in Lichess's cache yet.<br>
-          <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">
-            &rarr; Open in Lichess Analysis
-          </a>
-        </div>\`;
+        results.innerHTML = fenHtml + '<p class="status-text"><span class="spinner"></span>Running Stockfish engine locally&hellip;</p>';
+        try {
+          const pvs = await analyzeWithStockfish(fen);
+          results.innerHTML = fenHtml + '<div class="depth-info">Stockfish local analysis</div>' + renderCards(pvs);
+        } catch (err) {
+          results.innerHTML = fenHtml + \`<div class="error-box">Engine error: \${err.message}</div>\`;
+        }
         return;
       }
 
       const pvs = moves.pvs || [];
-      const cards = pvs.slice(0, 3).map((pv, i) => {
-        const ms = (pv.moves || '').split(' ');
-        const best = ms[0] || '?';
-        const cont = ms.slice(1, 4).join(' ');
-        let ev = '', cls = 'neu';
-        if (pv.cp !== undefined) {
-          ev = (pv.cp > 0 ? '+' : '') + (pv.cp / 100).toFixed(2);
-          cls = pv.cp > 30 ? 'pos' : pv.cp < -30 ? 'neg' : 'neu';
-        } else if (pv.mate !== undefined) {
-          ev = 'M' + pv.mate;
-          cls = pv.mate > 0 ? 'pos' : 'neg';
-        }
-        return \`<div class="move-card">
-          <div class="rank">#\${i+1}</div>
-          <div>
-            <div class="move">\${best}</div>
-            \${cont ? \`<div class="continuation">\${cont}&hellip;</div>\` : ''}
-          </div>
-          <div class="eval \${cls}">\${ev}</div>
-        </div>\`;
-      }).join('');
-
       const depth = moves.depth ? \`<div class="depth-info">Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess</a></div>\` : '';
-      results.innerHTML = fenHtml + depth + cards;
+      results.innerHTML = fenHtml + depth + renderCards(pvs);
 
     } catch (err) {
       results.innerHTML = \`<div class="error-box">Request failed: \${err.message}</div>\`;
     } finally {
       btn.disabled = false;
     }
+  }
+
+  function renderCards(pvs) {
+    return pvs.slice(0, 3).map((pv, i) => {
+      const ms = (pv.moves || '').split(' ');
+      const best = ms[0] || '?';
+      const cont = ms.slice(1, 4).join(' ');
+      let ev = '', cls = 'neu';
+      if (pv.cp !== undefined) {
+        ev = (pv.cp > 0 ? '+' : '') + (pv.cp / 100).toFixed(2);
+        cls = pv.cp > 30 ? 'pos' : pv.cp < -30 ? 'neg' : 'neu';
+      } else if (pv.mate !== undefined) {
+        ev = 'M' + pv.mate;
+        cls = pv.mate > 0 ? 'pos' : 'neg';
+      }
+      return \`<div class="move-card">
+        <div class="rank">#\${i+1}</div>
+        <div>
+          <div class="move">\${best}</div>
+          \${cont ? \`<div class="continuation">\${cont}&hellip;</div>\` : ''}
+        </div>
+        <div class="eval \${cls}">\${ev}</div>
+      </div>\`;
+    }).join('');
+  }
+
+  async function analyzeWithStockfish(fen) {
+    const resp = await fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
+    if (!resp.ok) throw new Error('Could not load Stockfish engine');
+    const script = await resp.text();
+    const blob = new Blob([script], { type: 'application/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
+
+    return new Promise((resolve, reject) => {
+      const pvs = [];
+      let settled = false;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        worker.terminate();
+        resolve(pvs.filter(Boolean).slice(0, 3));
+      };
+
+      setTimeout(finish, 8000);
+
+      worker.onmessage = e => {
+        const msg = e.data;
+        if (msg.startsWith('info') && msg.includes('multipv') && msg.includes(' pv ')) {
+          const idx = parseInt(msg.match(/multipv (\d+)/)?.[1] || '1') - 1;
+          const pv = msg.match(/ pv (.+)/)?.[1]?.trim().split(' ') || [];
+          const cp = msg.match(/score cp (-?\d+)/)?.[1];
+          const mate = msg.match(/score mate (-?\d+)/)?.[1];
+          if (pv.length) {
+            pvs[idx] = {
+              moves: pv.join(' '),
+              cp: cp !== undefined ? parseInt(cp) : undefined,
+              mate: mate !== undefined ? parseInt(mate) : undefined,
+            };
+          }
+        }
+        if (msg.startsWith('bestmove')) finish();
+      };
+
+      worker.onerror = e => { if (!settled) { settled = true; worker.terminate(); reject(new Error(e.message)); } };
+
+      worker.postMessage('uci');
+      worker.postMessage('isready');
+      worker.postMessage(\`position fen \${fen}\`);
+      worker.postMessage('setoption name MultiPV value 3');
+      worker.postMessage('go movetime 3000');
+    });
   }
 
   function toBase64(blob) {
