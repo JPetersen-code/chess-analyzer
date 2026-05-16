@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+    h1 { font-size: 1.6rem; color: #e2c98a; margin-bottom: 6px; }
+    .sub { color: #666; font-size: 0.85rem; margin-bottom: 28px; }
+
+    .card {
+      background: #16213e;
+      border-radius: 14px;
+      padding: 22px;
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 16px;
+    }
+
+    /* API key section */
+    .api-row { display: flex; gap: 8px; align-items: center; }
+    .api-row input {
+      flex: 1;
+      background: #0f1729;
+      border: 1px solid #2a3a5a;
+      color: #eee;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: monospace;
+    }
+    .api-row input:focus { outline: none; border-color: #e2c98a; }
+    .link { color: #e2c98a; font-size: 0.8rem; display: block; margin-top: 6px; }
+
+    /* Paste zone */
+    .paste-zone {
+      border: 2px dashed #2a3a5a;
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .paste-zone.active { border-color: #e2c98a; background: #1e2d4a; }
+    .paste-zone.has-image { padding: 0; border-color: #334; overflow: hidden; }
+    .paste-zone img { width: 100%; border-radius: 8px; display: block; }
+    .paste-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .paste-label { color: #888; font-size: 0.95rem; }
+    .paste-hint { color: #555; font-size: 0.8rem; margin-top: 6px; }
+
+    .clear-btn {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.6);
+      border: none; color: #eee;
+      border-radius: 50%; width: 28px; height: 28px;
+      cursor: pointer; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Analyze button */
+    .analyze-btn {
+      width: 100%;
+      padding: 14px;
+      background: #e2c98a;
+      color: #1a1a2e;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      margin-top: 14px;
+    }
+    .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .analyze-btn:not(:disabled):hover { opacity: 0.88; }
+
+    /* Status / results */
+    .status-text {
+      text-align: center;
+      color: #888;
+      font-size: 0.9rem;
+      padding: 8px 0;
+    }
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid #334; border-top-color: #e2c98a;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .fen-detected {
+      background: #0f1f0f;
+      border: 1px solid #1e3a1e;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #6fdc8c;
+      word-break: break-all;
+      margin-bottom: 14px;
+    }
+    .fen-label { font-size: 0.75rem; color: #555; margin-bottom: 4px; }
+
+    /* Move cards */
+    .move-card {
+      background: #0f1729;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-left: 4px solid #2a3a5a;
+    }
+    .move-card:nth-child(1) { border-left-color: #e2c98a; }
+    .move-card:nth-child(2) { border-left-color: #a0b4d0; }
+    .move-card:nth-child(3) { border-left-color: #666; }
+    .rank { font-size: 1.3rem; font-weight: 700; color: #444; min-width: 24px; }
+    .move-card:nth-child(1) .rank { color: #e2c98a; }
+    .move-card:nth-child(2) .rank { color: #a0b4d0; }
+    .move { font-size: 1.2rem; font-weight: 600; font-family: monospace; }
+    .continuation { font-size: 0.75rem; color: #555; font-family: monospace; }
+    .eval { margin-left: auto; font-size: 0.9rem; font-family: monospace; font-weight: 600; }
+    .pos { color: #6fdc8c; } .neg { color: #ff8b8b; } .neu { color: #a8b4d0; }
+
+    .error-box {
+      background: #2a1a1a; border: 1px solid #5a2a2a;
+      border-radius: 8px; padding: 12px;
+      color: #ff9090; font-size: 0.875rem; line-height: 1.5;
+    }
+    .lichess-link {
+      display: inline-block; margin-top: 10px;
+      color: #e2c98a; font-size: 0.85rem;
+      text-decoration: none;
+    }
+    .lichess-link:hover { text-decoration: underline; }
+    .depth-info { font-size: 0.75rem; color: #555; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+<h1>Chess Analyzer</h1>
+<p class="sub">Paste a screenshot → get top 3 moves instantly</p>
+
+<!-- Step 1: API Key -->
+<div class="card">
+  <div class="fen-label" style="margin-bottom:8px;">Google Gemini API Key <span style="color:#555">(free — <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#e2c98a;">get one here</a>)</span></div>
+  <div class="api-row">
+    <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off">
+  </div>
+</div>
+
+<!-- Step 2: Paste image -->
+<div class="card">
+  <div class="paste-zone" id="pasteZone" tabindex="0">
+    <div id="pastePrompt">
+      <div class="paste-icon">📋</div>
+      <div class="paste-label">Paste your screenshot here</div>
+      <div class="paste-hint">Press Ctrl+V &nbsp;·&nbsp; or tap &amp; hold → Paste on iPhone</div>
+    </div>
+    <img id="preview" style="display:none" alt="Chess board screenshot">
+    <button class="clear-btn" id="clearBtn" style="display:none" onclick="clearImage(event)">✕</button>
+  </div>
+
+  <button class="analyze-btn" id="analyzeBtn" onclick="analyze()" disabled>
+    Analyze Position
+  </button>
+</div>
+
+<!-- Results -->
+<div class="card" id="resultsCard" style="display:none">
+  <div id="results"></div>
+</div>
+
+<script>
+  let imageBlob = null;
+
+  // --- Paste handler ---
+  document.addEventListener('paste', handlePaste);
+  document.getElementById('pasteZone').addEventListener('click', () => {
+    // On desktop, focus the element so paste works; on mobile this is a no-op
+    document.getElementById('pasteZone').focus();
+  });
+
+  function handlePaste(e) {
+    const items = [...(e.clipboardData?.items || [])];
+    const imageItem = items.find(i => i.type.startsWith('image/'));
+    if (!imageItem) return;
+    e.preventDefault();
+    imageBlob = imageItem.getAsFile();
+    showPreview(imageBlob);
+  }
+
+  function showPreview(blob) {
+    const url = URL.createObjectURL(blob);
+    const preview = document.getElementById('preview');
+    const prompt = document.getElementById('pastePrompt');
+    const clearBtn = document.getElementById('clearBtn');
+    const pasteZone = document.getElementById('pasteZone');
+
+    preview.src = url;
+    preview.style.display = 'block';
+    prompt.style.display = 'none';
+    clearBtn.style.display = 'flex';
+    pasteZone.classList.add('has-image');
+    pasteZone.classList.remove('active');
+
+    document.getElementById('analyzeBtn').disabled = false;
+    document.getElementById('resultsCard').style.display = 'none';
+  }
+
+  function clearImage(e) {
+    e.stopPropagation();
+    imageBlob = null;
+    const preview = document.getElementById('preview');
+    const prompt = document.getElementById('pastePrompt');
+    const clearBtn = document.getElementById('clearBtn');
+    const pasteZone = document.getElementById('pasteZone');
+
+    preview.src = '';
+    preview.style.display = 'none';
+    prompt.style.display = 'block';
+    clearBtn.style.display = 'none';
+    pasteZone.classList.remove('has-image');
+    document.getElementById('analyzeBtn').disabled = true;
+    document.getElementById('resultsCard').style.display = 'none';
+  }
+
+  // Drag-drop support
+  const pasteZone = document.getElementById('pasteZone');
+  pasteZone.addEventListener('dragover', e => { e.preventDefault(); pasteZone.classList.add('active'); });
+  pasteZone.addEventListener('dragleave', () => pasteZone.classList.remove('active'));
+  pasteZone.addEventListener('drop', e => {
+    e.preventDefault();
+    pasteZone.classList.remove('active');
+    const file = e.dataTransfer.files[0];
+    if (file?.type.startsWith('image/')) { imageBlob = file; showPreview(file); }
+  });
+
+  // --- Main analysis flow ---
+  async function analyze() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) { alert('Please enter your Gemini API key first.'); return; }
+    if (!imageBlob) { alert('Please paste a screenshot first.'); return; }
+
+    const btn = document.getElementById('analyzeBtn');
+    const resultsCard = document.getElementById('resultsCard');
+    const results = document.getElementById('results');
+    btn.disabled = true;
+    resultsCard.style.display = 'block';
+    results.innerHTML = '<p class="status-text"><span class="spinner"></span>Reading board with Gemini...</p>';
+
+    try {
+      const fen = await extractFen(imageBlob, apiKey);
+
+      if (!fen || fen === 'UNKNOWN' || !isValidFen(fen)) {
+        results.innerHTML = `<div class="error-box">
+          Gemini couldn't read the chess position from this screenshot.<br><br>
+          Tips: make sure the board is fully visible, not cropped, and the image is clear.
+        </div>`;
+        return;
+      }
+
+      results.innerHTML = `
+        <div class="fen-label">Detected position</div>
+        <div class="fen-detected">${fen}</div>
+        <p class="status-text"><span class="spinner"></span>Getting top moves from Lichess...</p>`;
+
+      await getMoves(fen, results);
+
+    } catch (err) {
+      results.innerHTML = `<div class="error-box">${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function extractFen(blob, apiKey) {
+    const base64 = await blobToBase64(blob);
+    const mimeType = blob.type || 'image/png';
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              {
+                text: 'This is a chess board screenshot. Look carefully at every square and identify each piece. Then output ONLY the FEN notation string for this position (e.g. "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"). Output nothing else — no explanation, no markdown, just the raw FEN string. If you cannot determine the position, output the single word UNKNOWN.'
+              },
+              { inline_data: { mime_type: mimeType, data: base64 } }
+            ]
+          }],
+          generationConfig: { temperature: 0 }
+        })
+      }
+    );
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      const msg = err?.error?.message || `Gemini API error ${resp.status}`;
+      if (resp.status === 400 && msg.includes('API_KEY')) throw new Error('Invalid Gemini API key.');
+      throw new Error(msg);
+    }
+
+    const data = await resp.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'UNKNOWN';
+    // Strip any accidental markdown fences
+    return text.replace(/```[^\n]*\n?/g, '').replace(/`/g, '').trim();
+  }
+
+  async function getMoves(fen, resultsEl) {
+    const resp = await fetch(
+      `https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=3`,
+      { headers: { Accept: 'application/json' } }
+    );
+
+    const fenLabel = `<div class="fen-label">Detected position</div><div class="fen-detected">${fen}</div>`;
+
+    if (resp.status === 404) {
+      resultsEl.innerHTML = fenLabel + `<div class="error-box">
+        This position isn't cached by Lichess yet.<br>
+        <a class="lichess-link" href="https://lichess.org/analysis/${encodeURIComponent(fen)}" target="_blank">
+          → Open in Lichess Analysis (runs engine live)
+        </a>
+      </div>`;
+      return;
+    }
+    if (!resp.ok) throw new Error(`Lichess error ${resp.status}`);
+
+    const data = await resp.json();
+    const pvs = data.pvs || [];
+
+    if (!pvs.length) {
+      resultsEl.innerHTML = fenLabel + '<div class="error-box">No moves returned.</div>';
+      return;
+    }
+
+    const cards = pvs.slice(0, 3).map((pv, i) => {
+      const moves = (pv.moves || '').split(' ');
+      const best = moves[0] || '?';
+      const cont = moves.slice(1, 4).join(' ');
+      let evalStr = '', evalCls = 'neu';
+      if (pv.cp !== undefined) {
+        const p = (pv.cp / 100).toFixed(2);
+        evalStr = (pv.cp > 0 ? '+' : '') + p;
+        evalCls = pv.cp > 30 ? 'pos' : pv.cp < -30 ? 'neg' : 'neu';
+      } else if (pv.mate !== undefined) {
+        evalStr = `M${pv.mate}`;
+        evalCls = pv.mate > 0 ? 'pos' : 'neg';
+      }
+      return `<div class="move-card">
+        <div class="rank">#${i+1}</div>
+        <div>
+          <div class="move">${best}</div>
+          ${cont ? `<div class="continuation">${cont}…</div>` : ''}
+        </div>
+        <div class="eval ${evalCls}">${evalStr}</div>
+      </div>`;
+    }).join('');
+
+    const depthInfo = data.depth ? `<div class="depth-info">Depth ${data.depth} &nbsp;·&nbsp; <a href="https://lichess.org/analysis/${encodeURIComponent(fen)}" target="_blank" style="color:#555">Open in Lichess</a></div>` : '';
+
+    resultsEl.innerHTML = fenLabel + depthInfo + cards;
+  }
+
+  // --- Utils ---
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function isValidFen(fen) {
+    const parts = fen.trim().split(/\s+/);
+    if (parts.length < 1) return false;
+    const rows = parts[0].split('/');
+    return rows.length === 8;
+  }
+</script>
+</body>
+</html>
