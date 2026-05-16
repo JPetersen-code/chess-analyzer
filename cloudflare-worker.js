@@ -130,6 +130,7 @@ const HTML = `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chess Analyzer</title>
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -200,13 +201,13 @@ const HTML = `<!DOCTYPE html>
     .fen-label { font-size: 0.75rem; color: #555; margin-bottom: 4px; }
     .move-card {
       background: #0f1729; border-radius: 8px;
-      padding: 14px 16px; margin-bottom: 10px;
-      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px; margin-bottom: 16px;
       border-left: 4px solid #2a3a5a;
     }
     .move-card:nth-child(1) { border-left-color: #e2c98a; }
     .move-card:nth-child(2) { border-left-color: #a0b4d0; }
     .move-card:nth-child(3) { border-left-color: #666; }
+    .move-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
     .rank { font-size: 1.3rem; font-weight: 700; color: #444; min-width: 24px; }
     .move-card:nth-child(1) .rank { color: #e2c98a; }
     .move-card:nth-child(2) .rank { color: #a0b4d0; }
@@ -214,6 +215,9 @@ const HTML = `<!DOCTYPE html>
     .continuation { font-size: 0.75rem; color: #555; font-family: monospace; }
     .eval { margin-left: auto; font-size: 0.9rem; font-family: monospace; font-weight: 600; }
     .pos { color: #6fdc8c; } .neg { color: #ff8b8b; } .neu { color: #a8b4d0; }
+    .mini-board { width: 240px; margin: 8px auto 0; }
+    .sq-from { background: rgba(220, 80, 80, 0.55) !important; }
+    .sq-to   { background: rgba(80, 200, 80, 0.55) !important; }
     .error-box {
       background: #2a1a1a; border: 1px solid #5a2a2a;
       border-radius: 8px; padding: 14px;
@@ -319,6 +323,7 @@ const HTML = `<!DOCTYPE html>
         try {
           const pvs = await analyzeWithStockfish(fen);
           results.innerHTML = fenHtml + '<div class="depth-info">Stockfish local analysis</div>' + renderCards(pvs);
+          initBoards(pvs, fen);
         } catch (err) {
           results.innerHTML = fenHtml + \`<div class="error-box">Engine error: \${err.message}</div>\`;
         }
@@ -328,6 +333,7 @@ const HTML = `<!DOCTYPE html>
       const pvs = moves.pvs || [];
       const depth = moves.depth ? \`<div class="depth-info">Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess</a></div>\` : '';
       results.innerHTML = fenHtml + depth + renderCards(pvs);
+      initBoards(pvs, fen);
 
     } catch (err) {
       results.innerHTML = \`<div class="error-box">Request failed: \${err.message}</div>\`;
@@ -350,14 +356,40 @@ const HTML = `<!DOCTYPE html>
         cls = pv.mate > 0 ? 'pos' : 'neg';
       }
       return \`<div class="move-card">
-        <div class="rank">#\${i+1}</div>
-        <div>
-          <div class="move">\${best}</div>
-          \${cont ? \`<div class="continuation">\${cont}&hellip;</div>\` : ''}
+        <div class="move-header">
+          <div class="rank">#\${i+1}</div>
+          <div>
+            <div class="move">\${best}</div>
+            \${cont ? \`<div class="continuation">\${cont}&hellip;</div>\` : ''}
+          </div>
+          <div class="eval \${cls}">\${ev}</div>
         </div>
-        <div class="eval \${cls}">\${ev}</div>
+        <div class="mini-board" id="board-\${i}"></div>
       </div>\`;
     }).join('');
+  }
+
+  function initBoards(pvs, baseFen) {
+    if (typeof Chessboard === 'undefined' || typeof Chess === 'undefined') return;
+    pvs.slice(0, 3).forEach((pv, i) => {
+      const uci = (pv.moves || '').split(' ')[0];
+      if (!uci || uci.length < 4) return;
+      const from = uci.slice(0, 2);
+      const to   = uci.slice(2, 4);
+      const promo = uci[4] || 'q';
+      try {
+        const chess = new Chess(baseFen);
+        chess.move({ from, to, promotion: promo });
+        const newFen = chess.fen();
+        Chessboard(\`board-\${i}\`, {
+          position: newFen,
+          pieceTheme: 'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/img/chesspieces/wikipedia/{piece}.png',
+        });
+        // highlight from (red) and to (green) squares
+        \$(\`#board-\${i} .square-\${from}\`).addClass('sq-from');
+        \$(\`#board-\${i} .square-\${to}\`).addClass('sq-to');
+      } catch(e) { /* skip board if move parse fails */ }
+    });
   }
 
   async function analyzeWithStockfish(fen) {
@@ -417,5 +449,8 @@ const HTML = `<!DOCTYPE html>
     });
   }
 <\/script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"><\/script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"><\/script>
 </body>
 </html>`;
