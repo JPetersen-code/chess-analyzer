@@ -81,32 +81,31 @@ async function handleAnalyze(request, env) {
 }
 
 async function extractFen(base64, mimeType, apiKey) {
-  const prompt = `Look at this chess board screenshot carefully. Fill in every square of the 8x8 grid below.
+  const prompt = `You are a chess expert. Carefully examine this chess board screenshot and identify every piece on every square.
 
-Use exactly these characters:
-- White pieces: K Q R B N P
-- Black pieces: k q r b n p
+Step 1: Scan each rank (row) from top to bottom (rank 8 down to rank 1).
+Step 2: For each rank, scan each file (column) from left to right (a through h).
+Step 3: Output the result as exactly 8 lines, one per rank.
+
+Use exactly these characters (case-sensitive):
+- White pieces: K=king Q=queen R=rook B=bishop N=knight P=pawn
+- Black pieces: k=king q=queen r=rook b=bishop n=knight p=pawn
 - Empty square: .
 
-Output exactly 8 lines, each with exactly 8 characters separated by spaces.
-Row 1 = rank 8 (the top row of the board, black's back rank).
-Row 8 = rank 1 (the bottom row, white's back rank).
-Column 1 = file a (leftmost). Column 8 = file h (rightmost).
+Each line must have exactly 8 characters separated by single spaces.
+Line 1 = rank 8 (top of board, black's starting side).
+Line 8 = rank 1 (bottom of board, white's starting side).
+Column 1 = file a (left side). Column 8 = file h (right side).
 
-Example (starting position):
-r n b q k b n r
-p p p p p p p p
-. . . . . . . .
-. . . . . . . .
-. . . . . . . .
-. . . . . . . .
-P P P P P P P P
-R N B Q K B N R
+Pay careful attention to:
+- Piece color (white pieces are lighter, black pieces are darker)
+- Distinguishing similar pieces: rooks are castle-shaped, bishops have pointed tops, knights look like horse heads, queens have crowns, kings are tallest with crosses
+- Empty squares vs occupied squares
 
-Output ONLY the 8 lines. No explanation, no labels, no extra text.`;
+Output ONLY the 8 lines. No explanation, no labels, no numbering, no extra text.`;
 
   const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
