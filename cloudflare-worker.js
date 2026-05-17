@@ -234,6 +234,23 @@ const HTML = `<!DOCTYPE html>
       font-family: monospace; font-size: 0.78rem;
       color: #6fdc8c; word-break: break-all; margin-bottom: 14px;
     }
+    .fen-edit {
+      width: 100%; background: #0f1f0f; border: 1px solid #2a5a2a;
+      border-radius: 8px; padding: 10px 12px;
+      font-family: monospace; font-size: 0.78rem;
+      color: #6fdc8c; word-break: break-all; margin-bottom: 8px;
+      resize: vertical; min-height: 56px;
+    }
+    .fen-edit:focus { outline: none; border-color: #e2c98a; }
+    .fen-actions { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .fen-actions a { color: #a0b4d0; font-size: 0.8rem; padding: 6px 10px; border: 1px solid #2a3a5a; border-radius: 6px; text-decoration: none; }
+    .fen-actions a:hover { border-color: #a0b4d0; }
+    .get-moves-btn {
+      width: 100%; padding: 11px; background: #2a5a2a; color: #6fdc8c;
+      border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; margin-bottom: 14px; transition: opacity 0.2s;
+    }
+    .get-moves-btn:hover { opacity: 0.85; }
     .fen-label { font-size: 0.75rem; color: #555; margin-bottom: 4px; }
     .move-card {
       background: #0f1729; border-radius: 8px;
@@ -373,37 +390,74 @@ const HTML = `<!DOCTYPE html>
 
       const data = await resp.json();
 
-      const debugHtml = data.rawGemini
-        ? \`<details style="margin-top:12px"><summary style="color:#555;font-size:0.75rem;cursor:pointer">Raw Gemini output (debug)</summary><pre style="font-size:0.7rem;color:#6fdc8c;background:#0a1a0a;padding:8px;border-radius:6px;margin-top:6px;overflow-x:auto;white-space:pre-wrap">\${data.rawGemini.replace(/</g,'&lt;')}</pre></details>\`
-        : '';
-
       if (data.error) {
-        results.innerHTML = \`<div class="error-box">\${data.error}</div>\${debugHtml}\`;
+        results.innerHTML = \`<div class="error-box">\${data.error}</div>\`;
         return;
       }
 
-      const { fen, moves, lichessNotFound } = data;
-      const fenHtml = \`<div class="fen-label">Detected position</div><div class="fen-box">\${fen}</div>\${debugHtml}\`;
-
-      if (lichessNotFound) {
-        results.innerHTML = fenHtml + '<p class="status-text"><span class="spinner"></span>Running Stockfish engine locally&hellip;</p>';
-        try {
-          const pvs = await analyzeWithStockfish(fen);
-          results.innerHTML = fenHtml + '<div class="fen-label" style="margin-bottom:4px">Detected position</div>' + renderCurrentBoard(fen) + '<div class="depth-info" style="margin-top:12px">Stockfish local analysis — top 3 moves</div>' + renderCards(pvs, fen);
-        } catch (err) {
-          results.innerHTML = fenHtml + \`<div class="error-box">Engine error: \${err.message}</div>\`;
-        }
-        return;
-      }
-
-      const pvs = moves.pvs || [];
-      const depth = moves.depth ? \`<div class="depth-info">Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess</a></div>\` : '';
-      results.innerHTML = fenHtml + '<div class="fen-label" style="margin-bottom:4px">Detected position</div>' + renderCurrentBoard(fen) + '<div class="depth-info" style="margin-top:12px">' + (depth || '') + 'Top 3 moves</div>' + renderCards(pvs, fen);
+      // Show editable FEN — user verifies/corrects before getting moves
+      showFenEditor(data.fen, results);
 
     } catch (err) {
       results.innerHTML = \`<div class="error-box">Request failed: \${err.message}</div>\`;
     } finally {
       btn.disabled = false;
+    }
+  }
+
+  function showFenEditor(fen, container) {
+    const lichessUrl = \`https://lichess.org/analysis/\${encodeURIComponent(fen)}\`;
+    container.innerHTML = \`
+      <div class="fen-label">Detected FEN — verify it's correct, then click Get Top Moves</div>
+      <textarea class="fen-edit" id="fenEdit" spellcheck="false">\${fen}</textarea>
+      <div class="fen-actions">
+        <a id="lichessVerify" href="\${lichessUrl}" target="_blank">Verify in Lichess ↗</a>
+      </div>
+      <button class="get-moves-btn" onclick="getMovesForFen()">Get Top Moves</button>
+      <div id="moveResults"></div>
+    \`;
+    // keep lichess link in sync as user edits
+    document.getElementById('fenEdit').addEventListener('input', () => {
+      const v = document.getElementById('fenEdit').value.trim();
+      document.getElementById('lichessVerify').href = \`https://lichess.org/analysis/\${encodeURIComponent(v)}\`;
+    });
+  }
+
+  async function getMovesForFen() {
+    const rawFen = document.getElementById('fenEdit').value.trim();
+    const fen = rawFen.includes(' ') ? rawFen : rawFen + ' w - - 0 1';
+    const moveResults = document.getElementById('moveResults');
+
+    moveResults.innerHTML = '<p class="status-text"><span class="spinner"></span>Getting top moves&hellip;</p>';
+
+    try {
+      const lichessResp = await fetch(
+        \`https://lichess.org/api/cloud-eval?fen=\${encodeURIComponent(fen)}&multiPv=3\`,
+        { headers: { Accept: 'application/json' } }
+      );
+
+      if (lichessResp.status === 404) {
+        moveResults.innerHTML = '<p class="status-text"><span class="spinner"></span>Running Stockfish engine locally&hellip;</p>';
+        try {
+          const pvs = await analyzeWithStockfish(fen);
+          moveResults.innerHTML = '<div class="fen-label" style="margin-bottom:4px">Current position</div>' + renderCurrentBoard(fen) + '<div class="depth-info" style="margin-top:12px">Stockfish local analysis</div>' + renderCards(pvs, fen);
+        } catch (err) {
+          moveResults.innerHTML = \`<div class="error-box">Engine error: \${err.message}</div>\`;
+        }
+        return;
+      }
+
+      if (!lichessResp.ok) {
+        moveResults.innerHTML = \`<div class="error-box">Lichess error \${lichessResp.status}</div>\`;
+        return;
+      }
+
+      const moves = await lichessResp.json();
+      const pvs = moves.pvs || [];
+      const depth = moves.depth ? \`Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess</a>\` : '';
+      moveResults.innerHTML = '<div class="fen-label" style="margin-bottom:4px">Current position</div>' + renderCurrentBoard(fen) + \`<div class="depth-info" style="margin-top:12px">\${depth}</div>\` + renderCards(pvs, fen);
+    } catch (err) {
+      moveResults.innerHTML = \`<div class="error-box">Error: \${err.message}</div>\`;
     }
   }
 
