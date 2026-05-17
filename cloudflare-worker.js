@@ -498,9 +498,25 @@ const HTML = `<!DOCTYPE html>
   }
 
   function renderBoard(board, fromSq, toSq) {
-    const ff = fromSq.charCodeAt(0)-97, fr = 8-+fromSq[1];
-    const tf = toSq.charCodeAt(0)-97,   tr = 8-+toSq[1];
-    let html = '<div class="chess-board">';
+    return renderBoardWithCoords(board, fromSq, toSq);
+  }
+
+  function renderCurrentBoard(baseFen) {
+    const board = parseFenBoard(baseFen);
+    return renderBoardWithCoords(board, null, null);
+  }
+
+  function renderBoardWithCoords(board, fromSq, toSq) {
+    const ff = fromSq ? fromSq.charCodeAt(0)-97 : -1;
+    const fr = fromSq ? 8-+fromSq[1] : -1;
+    const tf = toSq ? toSq.charCodeAt(0)-97 : -1;
+    const tr = toSq ? 8-+toSq[1] : -1;
+    const lbl = 'font-size:0.55rem;color:#777;display:flex;align-items:center;justify-content:center;';
+    let html = \`<div style="display:inline-block;margin:10px auto 0;display:flex;flex-direction:column;align-items:center;">\`;
+    html += \`<div style="display:flex;">\`;
+    html += \`<div style="display:flex;flex-direction:column;">\`;
+    for (let r = 0; r < 8; r++) html += \`<div style="width:12px;height:28px;\${lbl}">\${8-r}</div>\`;
+    html += \`</div><div class="chess-board">\`;
     for (let r = 0; r < 8; r++) {
       for (let f = 0; f < 8; f++) {
         const light = (r + f) % 2 === 0;
@@ -515,23 +531,11 @@ const HTML = `<!DOCTYPE html>
         html += \`<div class="\${cls}">\${p && SYM[p] ? SYM[p] : ''}</div>\`;
       }
     }
-    return html + '</div>';
-  }
-
-  function renderCurrentBoard(baseFen) {
-    const board = parseFenBoard(baseFen);
-    let html = '<div class="chess-board">';
-    for (let r = 0; r < 8; r++) {
-      for (let f = 0; f < 8; f++) {
-        const light = (r + f) % 2 === 0;
-        const p = (board[r] || [])[f] || null;
-        const isWhite = p && p === p.toUpperCase();
-        let cls = light ? 'sq-light' : 'sq-dark';
-        if (p) cls += isWhite ? ' pc-w' : ' pc-b';
-        html += \`<div class="\${cls}">\${p && SYM[p] ? SYM[p] : ''}</div>\`;
-      }
-    }
-    return html + '</div>';
+    html += \`</div></div>\`;
+    html += \`<div style="display:flex;margin-left:12px;">\`;
+    for (let f = 0; f < 8; f++) html += \`<div style="width:28px;height:12px;\${lbl}">\${String.fromCharCode(97+f)}</div>\`;
+    html += \`</div></div>\`;
+    return html;
   }
 
   function renderCards(pvs, baseFen) {
