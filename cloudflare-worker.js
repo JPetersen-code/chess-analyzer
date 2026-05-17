@@ -81,28 +81,28 @@ async function handleAnalyze(request, env) {
 }
 
 async function extractFen(base64, mimeType, apiKey) {
-  const prompt = `You are a chess expert. Carefully examine this chess board screenshot and identify every piece on every square.
+  const prompt = `You are a chess expert analyzing a chess board screenshot.
 
-Step 1: Scan each rank (row) from top to bottom (rank 8 down to rank 1).
-Step 2: For each rank, scan each file (column) from left to right (a through h).
-Step 3: Output the result as exactly 8 lines, one per rank.
+First, determine board orientation: look at which side has the king and queen. White pieces are light-colored, black pieces are dark-colored. The board may be shown from white's perspective (white at bottom) or black's perspective (black at bottom).
 
-Use exactly these characters (case-sensitive):
-- White pieces: K=king Q=queen R=rook B=bishop N=knight P=pawn
-- Black pieces: k=king q=queen r=rook b=bishop n=knight p=pawn
-- Empty square: .
+Then map every square. Output exactly 8 lines representing ranks 8 down to 1 (top of image to bottom IF white is at bottom, reversed if black is at bottom). Each line has 8 characters separated by spaces, representing files a through h (left to right from white's perspective).
 
-Each line must have exactly 8 characters separated by single spaces.
-Line 1 = rank 8 (top of board, black's starting side).
-Line 8 = rank 1 (bottom of board, white's starting side).
-Column 1 = file a (left side). Column 8 = file h (right side).
+Characters:
+- White: K Q R B N P
+- Black: k q r b n p
+- Empty: .
 
-Pay careful attention to:
-- Piece color (white pieces are lighter, black pieces are darker)
-- Distinguishing similar pieces: rooks are castle-shaped, bishops have pointed tops, knights look like horse heads, queens have crowns, kings are tallest with crosses
-- Empty squares vs occupied squares
+Example output for starting position (white at bottom):
+r n b q k b n r
+p p p p p p p p
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+P P P P P P P P
+R N B Q K B N R
 
-Output ONLY the 8 lines. No explanation, no labels, no numbering, no extra text.`;
+Output ONLY the 8 lines. No other text.`;
 
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -111,7 +111,7 @@ Output ONLY the 8 lines. No explanation, no labels, no numbering, no extra text.
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-        generationConfig: { temperature: 0 },
+        generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 3000 } },
       }),
     }
   );
@@ -122,7 +122,10 @@ Output ONLY the 8 lines. No explanation, no labels, no numbering, no extra text.
   }
 
   const data = await resp.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+  // With thinking mode, parts may include a thought part first; find the text part
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const textPart = parts.find(p => p.text && !p.thought) || parts[parts.length - 1] || {};
+  const text = (textPart.text || '').trim();
   return gridToFen(text);
 }
 
