@@ -55,6 +55,10 @@ async function handleAnalyze(request, env) {
   try {
     ({ fen, raw: rawGemini } = await extractFen(imageBase64, mimeType, env.GEMINI_API_KEY));
   } catch (err) {
+    if (err.message.startsWith('RATE_LIMIT:')) {
+      const seconds = err.message.split(':')[1];
+      return json({ rateLimited: true, retryAfter: parseInt(seconds) }, 429);
+    }
     return json({ error: err.message }, 502);
   }
 
@@ -100,14 +104,19 @@ No other text. No spaces around slashes.`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-        generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 5000 } },
+        generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 1024 } },
       }),
     }
   );
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `Gemini error ${resp.status}`);
+    const msg = err?.error?.message || `Gemini error ${resp.status}`;
+    if (resp.status === 429) {
+      const seconds = Math.ceil(parseFloat(msg.match(/retry in ([\d.]+)s/i)?.[1] || '60'));
+      throw new Error(`RATE_LIMIT:${seconds}`);
+    }
+    throw new Error(msg);
   }
 
   const data = await resp.json();
@@ -389,6 +398,17 @@ const HTML = `<!DOCTYPE html>
       });
 
       const data = await resp.json();
+
+      if (data.rateLimited) {
+        let secs = data.retryAfter || 60;
+        const tick = () => {
+          results.innerHTML = \`<div class="error-box">Gemini rate limit hit. Retrying in \${secs}s&hellip;</div>\`;
+          if (secs <= 0) { analyze(); return; }
+          secs--; setTimeout(tick, 1000);
+        };
+        tick();
+        return;
+      }
 
       if (data.error) {
         results.innerHTML = \`<div class="error-box">\${data.error}</div>\`;
