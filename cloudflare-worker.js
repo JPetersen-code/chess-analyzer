@@ -81,20 +81,37 @@ async function handleAnalyze(request, env) {
 }
 
 async function extractFen(base64, mimeType, apiKey) {
+  const prompt = `Look at this chess board screenshot carefully. Fill in every square of the 8x8 grid below.
+
+Use exactly these characters:
+- White pieces: K Q R B N P
+- Black pieces: k q r b n p
+- Empty square: .
+
+Output exactly 8 lines, each with exactly 8 characters separated by spaces.
+Row 1 = rank 8 (the top row of the board, black's back rank).
+Row 8 = rank 1 (the bottom row, white's back rank).
+Column 1 = file a (leftmost). Column 8 = file h (rightmost).
+
+Example (starting position):
+r n b q k b n r
+p p p p p p p p
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+. . . . . . . .
+P P P P P P P P
+R N B Q K B N R
+
+Output ONLY the 8 lines. No explanation, no labels, no extra text.`;
+
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            {
-              text: 'This is a chess board screenshot. Carefully examine every single square of the 8x8 board. White pieces are uppercase (K Q R B N P), black pieces are lowercase (k q r b n p), empty squares are numbers. Rank 8 is the top row (black side), rank 1 is the bottom row (white side). File a is the leftmost column. Output ONLY the FEN string for this position (example: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"). Each rank must total exactly 8 squares. Output nothing else — no explanation, no markdown, just the raw FEN string. If you cannot determine the position, output only the word UNKNOWN.',
-            },
-            { inline_data: { mime_type: mimeType, data: base64 } },
-          ],
-        }],
+        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
         generationConfig: { temperature: 0 },
       }),
     }
@@ -102,13 +119,31 @@ async function extractFen(base64, mimeType, apiKey) {
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    const msg = err?.error?.message || `Gemini error ${resp.status}`;
-    throw new Error(msg);
+    throw new Error(err?.error?.message || `Gemini error ${resp.status}`);
   }
 
   const data = await resp.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'UNKNOWN';
-  return text.replace(/```[^\n]*\n?/g, '').replace(/`/g, '').trim();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+  return gridToFen(text);
+}
+
+function gridToFen(grid) {
+  const lines = grid.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 8) return 'UNKNOWN';
+  const ranks = [];
+  for (let i = 0; i < 8; i++) {
+    const cells = lines[i].split(/\s+/).filter(c => c.length === 1);
+    if (cells.length !== 8) return 'UNKNOWN';
+    let rank = '', empty = 0;
+    for (const c of cells) {
+      if (c === '.') { empty++; }
+      else { if (empty) { rank += empty; empty = 0; } rank += c; }
+    }
+    if (empty) rank += empty;
+    ranks.push(rank);
+  }
+  // detect side to move: if more white pieces have moved, black to move — default white
+  return ranks.join('/') + ' w - - 0 1';
 }
 
 function isValidFen(fen) {
