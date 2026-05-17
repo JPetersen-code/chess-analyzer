@@ -503,7 +503,7 @@ const HTML = `<!DOCTYPE html>
     let html = '<div class="chess-board">';
     for (let r = 0; r < 8; r++) {
       for (let f = 0; f < 8; f++) {
-        const light = (r + f) % 2 === 0;
+        const light = (r + f) % 2 === 1;
         const isFrom = r === fr && f === ff;
         const isTo   = r === tr && f === tf;
         const p = (board[r] || [])[f] || null;
@@ -523,7 +523,7 @@ const HTML = `<!DOCTYPE html>
     let html = '<div class="chess-board">';
     for (let r = 0; r < 8; r++) {
       for (let f = 0; f < 8; f++) {
-        const light = (r + f) % 2 === 0;
+        const light = (r + f) % 2 === 1;
         const p = (board[r] || [])[f] || null;
         const isWhite = p && p === p.toUpperCase();
         let cls = light ? 'sq-light' : 'sq-dark';
