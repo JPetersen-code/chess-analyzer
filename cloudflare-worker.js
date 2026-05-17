@@ -167,167 +167,268 @@ const HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Joe's Chess Screenshot Analyzer</title>
+  <title>Joe's Chess Analyzer</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: system-ui, sans-serif;
-      background: #1a1a2e;
-      color: #eee;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0d1117;
+      color: #e0e4f0;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 32px 16px;
+      padding: 40px 16px 60px;
     }
-    h1 { font-size: 1.6rem; color: #e2c98a; margin-bottom: 6px; }
-    .sub { color: #666; font-size: 0.85rem; margin-bottom: 28px; }
-    .card {
-      background: #16213e;
-      border-radius: 14px;
-      padding: 22px;
-      width: 100%;
-      max-width: 480px;
-      margin-bottom: 16px;
+
+    /* ── Header ── */
+    .site-header { text-align: center; margin-bottom: 36px; }
+    .site-header .logo { font-size: 2.2rem; margin-bottom: 8px; }
+    .site-header h1 {
+      font-size: 1.75rem; font-weight: 700;
+      color: #e2c98a; letter-spacing: -0.02em;
+    }
+    .site-header .tagline {
+      color: #4a5568; font-size: 0.82rem; margin-top: 6px; line-height: 1.5;
+    }
+    .badge {
+      display: inline-block; margin-top: 10px;
+      background: #1a2535; border: 1px solid #2a3a55;
+      color: #6b7a9a; font-size: 0.72rem; padding: 4px 10px;
+      border-radius: 20px; letter-spacing: 0.02em;
+    }
+
+    /* ── Upload card ── */
+    .upload-card {
+      background: #161b27;
+      border: 1px solid #1e2a3a;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%; max-width: 500px;
+      margin-bottom: 24px;
+    }
+    .section-label {
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #4a5568; margin-bottom: 12px;
     }
     .paste-zone {
-      border: 2px dashed #2a3a5a;
-      border-radius: 10px;
-      padding: 48px 20px;
+      border: 2px dashed #1e2a3a;
+      border-radius: 12px;
+      padding: 44px 20px;
       text-align: center;
       transition: border-color 0.2s, background 0.2s;
-      position: relative;
-      outline: none;
+      position: relative; outline: none; cursor: default;
     }
-    .paste-zone.active { border-color: #e2c98a; background: #1e2d4a; }
-    .paste-zone.has-image { padding: 0; border-color: #334; overflow: hidden; }
-    .paste-zone img { width: 100%; border-radius: 8px; display: block; }
-    .paste-icon { font-size: 2.8rem; margin-bottom: 10px; }
-    .paste-label { color: #aaa; font-size: 1rem; }
-    .paste-hint { color: #555; font-size: 0.8rem; margin-top: 8px; }
+    .paste-zone.active { border-color: #e2c98a; background: #1a2235; }
+    .paste-zone.has-image { padding: 0; border-color: #2a3a5a; overflow: hidden; }
+    .paste-zone img { width: 100%; border-radius: 10px; display: block; }
+    .paste-icon { font-size: 2.4rem; margin-bottom: 10px; opacity: 0.7; }
+    .paste-label { color: #8892a4; font-size: 0.95rem; font-weight: 500; }
+    .paste-hint { color: #3a4458; font-size: 0.78rem; margin-top: 8px; }
     .clear-btn {
-      position: absolute; top: 8px; right: 8px;
-      background: rgba(0,0,0,0.65); border: none; color: #eee;
-      border-radius: 50%; width: 30px; height: 30px;
-      cursor: pointer; font-size: 1rem;
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(0,0,0,0.7); border: none; color: #ccc;
+      border-radius: 50%; width: 28px; height: 28px;
+      cursor: pointer; font-size: 0.85rem;
       display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
     }
+    .clear-btn:hover { background: rgba(0,0,0,0.9); }
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; }
     .attach-btn {
-      width: 100%; padding: 12px;
-      background: #1e2d4a; color: #a8b4d0;
-      border: 1px solid #2a3a5a; border-radius: 10px;
-      font-size: 0.95rem; font-weight: 600; cursor: pointer;
-      margin-top: 12px; transition: border-color 0.2s, color 0.2s;
+      flex: 1; padding: 11px;
+      background: transparent; color: #8892a4;
+      border: 1px solid #1e2a3a; border-radius: 10px;
+      font-size: 0.88rem; font-weight: 500; cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
     }
     .attach-btn:hover { border-color: #e2c98a; color: #e2c98a; }
     .analyze-btn {
-      width: 100%; padding: 14px;
-      background: #e2c98a; color: #1a1a2e;
+      flex: 2; padding: 11px;
+      background: #e2c98a; color: #0d1117;
       border: none; border-radius: 10px;
-      font-size: 1rem; font-weight: 700; cursor: pointer;
-      transition: opacity 0.2s; margin-top: 10px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
     }
-    .analyze-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    .analyze-btn:not(:disabled):hover { opacity: 0.88; }
+    .analyze-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .analyze-btn:not(:disabled):hover { opacity: 0.9; }
+    .analyze-btn:not(:disabled):active { transform: scale(0.98); }
+
+    /* ── Results wrapper ── */
+    .results-outer {
+      width: 100%; max-width: 960px;
+      display: none;
+    }
+
+    /* ── Status / error ── */
     .spinner {
-      display: inline-block; width: 16px; height: 16px;
-      border: 2px solid #334; border-top-color: #e2c98a;
+      display: inline-block; width: 15px; height: 15px;
+      border: 2px solid #1e2a3a; border-top-color: #e2c98a;
       border-radius: 50%; animation: spin 0.7s linear infinite;
-      vertical-align: middle; margin-right: 6px;
+      vertical-align: middle; margin-right: 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .status-text { text-align: center; color: #888; font-size: 0.9rem; padding: 8px 0; }
-    .fen-box {
-      background: #0f1f0f; border: 1px solid #1e3a1e;
-      border-radius: 8px; padding: 10px 12px;
-      font-family: monospace; font-size: 0.78rem;
-      color: #6fdc8c; word-break: break-all; margin-bottom: 14px;
+    .status-text { text-align: center; color: #4a5568; font-size: 0.9rem; padding: 20px 0; }
+    .error-box {
+      background: #1a0f0f; border: 1px solid #3a1a1a;
+      border-radius: 10px; padding: 16px;
+      color: #f08080; font-size: 0.875rem; line-height: 1.6;
+    }
+
+    /* ── FEN editor ── */
+    .fen-section {
+      background: #161b27; border: 1px solid #1e2a3a;
+      border-radius: 16px; padding: 20px;
+      margin-bottom: 20px;
     }
     .fen-edit {
-      width: 100%; background: #0f1f0f; border: 1px solid #2a5a2a;
+      width: 100%; background: #0d1117; border: 1px solid #1e2a3a;
       border-radius: 8px; padding: 10px 12px;
-      font-family: monospace; font-size: 0.78rem;
-      color: #6fdc8c; word-break: break-all; margin-bottom: 8px;
-      resize: vertical; min-height: 56px;
+      font-family: monospace; font-size: 0.8rem;
+      color: #6fdc8c; margin-bottom: 10px;
+      resize: none; height: 48px; line-height: 1.6;
     }
     .fen-edit:focus { outline: none; border-color: #e2c98a; }
-    .fen-actions { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-    .fen-actions a { color: #a0b4d0; font-size: 0.8rem; padding: 6px 10px; border: 1px solid #2a3a5a; border-radius: 6px; text-decoration: none; }
-    .fen-actions a:hover { border-color: #a0b4d0; }
+    .fen-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .fen-link {
+      color: #6b7a9a; font-size: 0.78rem; padding: 6px 12px;
+      border: 1px solid #1e2a3a; border-radius: 6px; text-decoration: none;
+      transition: border-color 0.2s, color 0.2s; white-space: nowrap;
+    }
+    .fen-link:hover { border-color: #a0b4d0; color: #a0b4d0; }
     .get-moves-btn {
-      width: 100%; padding: 11px; background: #2a5a2a; color: #6fdc8c;
-      border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700;
-      cursor: pointer; margin-bottom: 14px; transition: opacity 0.2s;
+      margin-left: auto; padding: 8px 20px;
+      background: #1a3a1a; color: #6fdc8c;
+      border: 1px solid #2a5a2a; border-radius: 8px;
+      font-size: 0.88rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s; white-space: nowrap;
     }
-    .get-moves-btn:hover { opacity: 0.85; }
-    .fen-label { font-size: 0.75rem; color: #555; margin-bottom: 4px; }
+    .get-moves-btn:hover { background: #2a5a2a; }
+
+    /* ── Position + moves layout ── */
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 700px) {
+      .analysis-grid { grid-template-columns: 1fr; }
+    }
+
+    .position-panel {
+      background: #161b27; border: 1px solid #1e2a3a;
+      border-radius: 16px; padding: 20px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .moves-panel {
+      background: #161b27; border: 1px solid #1e2a3a;
+      border-radius: 16px; padding: 20px;
+    }
+    .panel-title {
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #4a5568; margin-bottom: 14px;
+    }
+
+    /* ── Move cards side by side ── */
+    .moves-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 500px) {
+      .moves-grid { grid-template-columns: 1fr; }
+    }
+
     .move-card {
-      background: #0f1729; border-radius: 8px;
-      padding: 14px 16px; margin-bottom: 16px;
-      border-left: 4px solid #2a3a5a;
+      background: #0d1117; border-radius: 12px; padding: 14px 12px;
+      border-top: 3px solid #1e2a3a;
+      display: flex; flex-direction: column; align-items: center;
+      transition: border-color 0.2s;
     }
-    .move-card:nth-child(1) { border-left-color: #e2c98a; }
-    .move-card:nth-child(2) { border-left-color: #a0b4d0; }
-    .move-card:nth-child(3) { border-left-color: #666; }
-    .move-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-    .rank { font-size: 1.3rem; font-weight: 700; color: #444; min-width: 24px; }
-    .move-card:nth-child(1) .rank { color: #e2c98a; }
-    .move-card:nth-child(2) .rank { color: #a0b4d0; }
-    .move { font-size: 1.2rem; font-weight: 600; font-family: monospace; }
-    .continuation { font-size: 0.75rem; color: #555; font-family: monospace; }
-    .eval { margin-left: auto; font-size: 0.9rem; font-family: monospace; font-weight: 600; }
-    .pos { color: #6fdc8c; } .neg { color: #ff8b8b; } .neu { color: #a8b4d0; }
+    .move-card:nth-child(1) { border-top-color: #e2c98a; }
+    .move-card:nth-child(2) { border-top-color: #94a3b8; }
+    .move-card:nth-child(3) { border-top-color: #78553a; }
+
+    .move-badge {
+      font-size: 1rem; margin-bottom: 4px;
+    }
+    .move-uci {
+      font-family: monospace; font-size: 1.25rem; font-weight: 700;
+      color: #e0e4f0; margin-bottom: 2px;
+    }
+    .move-eval {
+      font-family: monospace; font-size: 0.82rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 4px; margin-bottom: 10px;
+      background: #1e2a3a;
+    }
+    .move-eval.pos { color: #4ade80; }
+    .move-eval.neg { color: #f87171; }
+    .move-eval.neu { color: #94a3b8; }
+    .move-cont { font-size: 0.68rem; color: #3a4458; font-family: monospace; margin-bottom: 10px; min-height: 16px; }
+
+    /* ── Chess board ── */
     .chess-board {
       display: grid;
-      grid-template-columns: repeat(8, 28px);
-      grid-template-rows: repeat(8, 28px);
-      width: 224px; height: 224px;
-      margin: 12px auto 0; border: 2px solid #3a3a5a;
-      border-radius: 4px; overflow: hidden; flex-shrink: 0;
+      grid-template-columns: repeat(8, 26px);
+      grid-template-rows: repeat(8, 26px);
+      width: 208px; height: 208px;
+      border: 2px solid #2a3a5a;
+      border-radius: 4px; overflow: hidden;
     }
     .chess-board > div {
-      width: 28px; height: 28px; overflow: hidden;
+      width: 26px; height: 26px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.1rem; line-height: 1; user-select: none;
+      font-size: 1rem; line-height: 1; user-select: none;
     }
+    .chess-board.large {
+      grid-template-columns: repeat(8, 34px);
+      grid-template-rows: repeat(8, 34px);
+      width: 272px; height: 272px;
+    }
+    .chess-board.large > div { width: 34px; height: 34px; font-size: 1.35rem; }
+
     .sq-light { background: #f0d9b5; }
     .sq-dark  { background: #b58863; }
-    .sq-from  { background: rgba(210, 60, 60, 0.72) !important; }
-    .sq-to    { background: rgba(60, 200, 60, 0.72) !important; }
-    .pc-w { color: #fff; text-shadow: 0 0 3px #000, 0 0 1px #000; }
-    .pc-b { color: #111; text-shadow: 0 0 3px rgba(255,255,255,0.4); }
-    .error-box {
-      background: #2a1a1a; border: 1px solid #5a2a2a;
-      border-radius: 8px; padding: 14px;
-      color: #ff9090; font-size: 0.875rem; line-height: 1.6;
-    }
-    a { color: #e2c98a; }
-    .depth-info { font-size: 0.75rem; color: #555; margin-bottom: 12px; }
+    .sq-from  { background: rgba(220, 60, 60, 0.75) !important; }
+    .sq-to    { background: rgba(60, 210, 80, 0.75) !important; }
+    .pc-w { color: #fff; text-shadow: 0 0 4px #000, 0 0 2px #000; }
+    .pc-b { color: #111; text-shadow: 0 0 3px rgba(255,255,255,0.5); }
+
+    .coord-lbl { font-size: 0.5rem; color: #555; display: flex; align-items: center; justify-content: center; }
+    .depth-info { font-size: 0.72rem; color: #3a4458; margin-top: 10px; text-align: center; }
+    a { color: #e2c98a; text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <h1>Joe's Chess Screenshot Analyzer</h1>
-  <p class="sub">Upload a screenshot of your chess game to see the top 3 moves for any position.</p>
-  <p class="sub" style="max-width:420px; text-align:center; margin-bottom:24px;">
-    Built for post-game study and practice against AI &mdash; not for use during games against real people.
-  </p>
 
-  <div class="card">
+  <div class="site-header">
+    <div class="logo">♟</div>
+    <h1>Joe's Chess Analyzer</h1>
+    <p class="tagline">Screenshot any chess position &rarr; get the top 3 engine moves instantly</p>
+    <span class="badge">For post-game study &amp; AI practice &mdash; not for use against real people</span>
+  </div>
+
+  <div class="upload-card">
+    <div class="section-label">Step 1 &mdash; Add your screenshot</div>
     <div class="paste-zone" id="pasteZone" tabindex="0">
       <div id="pastePrompt">
         <div class="paste-icon">&#128247;</div>
-        <div class="paste-label">Paste your chess screenshot here</div>
+        <div class="paste-label">Paste or drag your screenshot here</div>
         <div class="paste-hint">Ctrl+V on desktop &nbsp;&middot;&nbsp; Long-press &rarr; Paste on iPhone</div>
       </div>
       <img id="preview" style="display:none" alt="">
       <button class="clear-btn" id="clearBtn" style="display:none" onclick="clearImage(event)">&#10005;</button>
     </div>
     <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(event)">
-    <button class="attach-btn" onclick="document.getElementById('fileInput').click()">&#128247; Attach Screenshot</button>
-    <button class="analyze-btn" id="analyzeBtn" onclick="analyze()" disabled>Analyze Position</button>
+    <div class="btn-row">
+      <button class="attach-btn" onclick="document.getElementById('fileInput').click()">&#128247; Attach</button>
+      <button class="analyze-btn" id="analyzeBtn" onclick="analyze()" disabled>Analyze Position</button>
+    </div>
   </div>
 
-  <div class="card" id="resultsCard" style="display:none">
+  <div class="results-outer" id="resultsOuter">
     <div id="results"></div>
   </div>
 
@@ -350,7 +451,7 @@ const HTML = `<!DOCTYPE html>
     document.getElementById('clearBtn').style.display = 'flex';
     document.getElementById('pasteZone').classList.add('has-image');
     document.getElementById('analyzeBtn').disabled = false;
-    document.getElementById('resultsCard').style.display = 'none';
+    document.getElementById('resultsOuter').style.display = 'none';
   }
 
   function clearImage(e) {
@@ -362,7 +463,7 @@ const HTML = `<!DOCTYPE html>
     document.getElementById('clearBtn').style.display = 'none';
     document.getElementById('pasteZone').classList.remove('has-image');
     document.getElementById('analyzeBtn').disabled = true;
-    document.getElementById('resultsCard').style.display = 'none';
+    document.getElementById('resultsOuter').style.display = 'none';
   }
 
   function handleFile(e) {
@@ -383,11 +484,11 @@ const HTML = `<!DOCTYPE html>
   async function analyze(isRetry = false) {
     if (!imageBlob) return;
     const btn = document.getElementById('analyzeBtn');
-    const card = document.getElementById('resultsCard');
+    const card = document.getElementById('resultsOuter');
     const results = document.getElementById('results');
     btn.disabled = true;
-    card.style.display = 'block';
-    results.innerHTML = '<p class="status-text"><span class="spinner"></span>Reading board&hellip;</p>';
+    document.getElementById('resultsOuter').style.display = 'block';
+    results.innerHTML = '<p class="status-text"><span class="spinner"></span>Reading board with Gemini&hellip;</p>';
 
     try {
       const base64 = await toBase64(imageBlob);
@@ -433,15 +534,16 @@ const HTML = `<!DOCTYPE html>
   function showFenEditor(fen, container) {
     const lichessUrl = \`https://lichess.org/analysis/\${encodeURIComponent(fen)}\`;
     container.innerHTML = \`
-      <div class="fen-label">Detected FEN — verify it's correct, then click Get Top Moves</div>
-      <textarea class="fen-edit" id="fenEdit" spellcheck="false">\${fen}</textarea>
-      <div class="fen-actions">
-        <a id="lichessVerify" href="\${lichessUrl}" target="_blank">Verify in Lichess ↗</a>
+      <div class="fen-section">
+        <div class="section-label">Step 2 &mdash; Verify detected position</div>
+        <textarea class="fen-edit" id="fenEdit" spellcheck="false">\${fen}</textarea>
+        <div class="fen-row">
+          <a class="fen-link" id="lichessVerify" href="\${lichessUrl}" target="_blank">Verify in Lichess &#8599;</a>
+          <button class="get-moves-btn" onclick="getMovesForFen()">Get Top Moves &rarr;</button>
+        </div>
       </div>
-      <button class="get-moves-btn" onclick="getMovesForFen()">Get Top Moves</button>
       <div id="moveResults"></div>
     \`;
-    // keep lichess link in sync as user edits
     document.getElementById('fenEdit').addEventListener('input', () => {
       const v = document.getElementById('fenEdit').value.trim();
       document.getElementById('lichessVerify').href = \`https://lichess.org/analysis/\${encodeURIComponent(v)}\`;
@@ -465,7 +567,18 @@ const HTML = `<!DOCTYPE html>
         moveResults.innerHTML = '<p class="status-text"><span class="spinner"></span>Running Stockfish engine locally&hellip;</p>';
         try {
           const pvs = await analyzeWithStockfish(fen);
-          moveResults.innerHTML = '<div class="fen-label" style="margin-bottom:4px">Current position</div>' + renderCurrentBoard(fen) + '<div class="depth-info" style="margin-top:12px">Stockfish local analysis</div>' + renderCards(pvs, fen);
+          moveResults.innerHTML = \`
+            <div class="analysis-grid">
+              <div class="position-panel">
+                <div class="panel-title">Current Position</div>
+                \${renderCurrentBoard(fen)}
+                <div class="depth-info">Stockfish local engine</div>
+              </div>
+              <div class="moves-panel">
+                <div class="panel-title">Top 3 Moves</div>
+                <div class="moves-grid">\${renderCards(pvs, fen)}</div>
+              </div>
+            </div>\`;
         } catch (err) {
           moveResults.innerHTML = \`<div class="error-box">Engine error: \${err.message}</div>\`;
         }
@@ -479,8 +592,19 @@ const HTML = `<!DOCTYPE html>
 
       const moves = await lichessResp.json();
       const pvs = moves.pvs || [];
-      const depth = moves.depth ? \`Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess</a>\` : '';
-      moveResults.innerHTML = '<div class="fen-label" style="margin-bottom:4px">Current position</div>' + renderCurrentBoard(fen) + \`<div class="depth-info" style="margin-top:12px">\${depth}</div>\` + renderCards(pvs, fen);
+      const depth = moves.depth ? \`Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess &#8599;</a>\` : '';
+      moveResults.innerHTML = \`
+        <div class="analysis-grid">
+          <div class="position-panel">
+            <div class="panel-title">Current Position</div>
+            \${renderCurrentBoard(fen)}
+            <div class="depth-info">\${depth}</div>
+          </div>
+          <div class="moves-panel">
+            <div class="panel-title">Top 3 Moves</div>
+            <div class="moves-grid">\${renderCards(pvs, fen)}</div>
+          </div>
+        </div>\`;
     } catch (err) {
       moveResults.innerHTML = \`<div class="error-box">Error: \${err.message}</div>\`;
     }
@@ -528,20 +652,21 @@ const HTML = `<!DOCTYPE html>
 
   function renderCurrentBoard(baseFen) {
     const board = parseFenBoard(baseFen);
-    return renderBoardWithCoords(board, null, null);
+    return renderBoardWithCoords(board, null, null, true);
   }
 
-  function renderBoardWithCoords(board, fromSq, toSq) {
+  function renderBoardWithCoords(board, fromSq, toSq, large = false) {
+    const sq = large ? 34 : 26;
     const ff = fromSq ? fromSq.charCodeAt(0)-97 : -1;
     const fr = fromSq ? 8-+fromSq[1] : -1;
     const tf = toSq ? toSq.charCodeAt(0)-97 : -1;
     const tr = toSq ? 8-+toSq[1] : -1;
-    const lbl = 'font-size:0.55rem;color:#777;display:flex;align-items:center;justify-content:center;';
-    let html = \`<div style="display:inline-block;margin:10px auto 0;display:flex;flex-direction:column;align-items:center;">\`;
+    const lbl = \`font-size:0.5rem;color:#555;display:flex;align-items:center;justify-content:center;\`;
+    let html = \`<div style="display:flex;flex-direction:column;align-items:center;">\`;
     html += \`<div style="display:flex;">\`;
     html += \`<div style="display:flex;flex-direction:column;">\`;
-    for (let r = 0; r < 8; r++) html += \`<div style="width:12px;height:28px;\${lbl}">\${8-r}</div>\`;
-    html += \`</div><div class="chess-board">\`;
+    for (let r = 0; r < 8; r++) html += \`<div style="width:10px;height:\${sq}px;\${lbl}">\${8-r}</div>\`;
+    html += \`</div><div class="chess-board\${large?' large':''}">\`;
     for (let r = 0; r < 8; r++) {
       for (let f = 0; f < 8; f++) {
         const light = (r + f) % 2 === 0;
@@ -557,18 +682,20 @@ const HTML = `<!DOCTYPE html>
       }
     }
     html += \`</div></div>\`;
-    html += \`<div style="display:flex;margin-left:12px;">\`;
-    for (let f = 0; f < 8; f++) html += \`<div style="width:28px;height:12px;\${lbl}">\${String.fromCharCode(97+f)}</div>\`;
+    html += \`<div style="display:flex;margin-left:10px;">\`;
+    for (let f = 0; f < 8; f++) html += \`<div style="width:\${sq}px;height:10px;\${lbl}">\${String.fromCharCode(97+f)}</div>\`;
     html += \`</div></div>\`;
     return html;
   }
+
+  const MEDALS = ['🥇','🥈','🥉'];
 
   function renderCards(pvs, baseFen) {
     const board = parseFenBoard(baseFen);
     return pvs.slice(0, 3).map((pv, i) => {
       const ms = (pv.moves || '').split(' ');
       const uci = ms[0] || '';
-      const cont = ms.slice(1, 4).join(' ');
+      const cont = ms.slice(1, 3).join(' ');
       let ev = '', cls = 'neu';
       if (pv.cp !== undefined) {
         ev = (pv.cp > 0 ? '+' : '') + (pv.cp / 100).toFixed(2);
@@ -584,14 +711,10 @@ const HTML = `<!DOCTYPE html>
         } catch(e) {}
       }
       return \`<div class="move-card">
-        <div class="move-header">
-          <div class="rank">#\${i+1}</div>
-          <div>
-            <div class="move">\${uci}</div>
-            \${cont ? \`<div class="continuation">\${cont}&hellip;</div>\` : ''}
-          </div>
-          <div class="eval \${cls}">\${ev}</div>
-        </div>
+        <div class="move-badge">\${MEDALS[i]}</div>
+        <div class="move-uci">\${uci}</div>
+        <div class="move-eval \${cls}">\${ev}</div>
+        <div class="move-cont">\${cont ? cont + '&hellip;' : ''}</div>
         \${boardHtml}
       </div>\`;
     }).join('');
