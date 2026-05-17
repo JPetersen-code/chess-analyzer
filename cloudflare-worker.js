@@ -104,7 +104,7 @@ No other text. No spaces around slashes.`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-        generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 1024 } },
+        generationConfig: { temperature: 0 },
       }),
     }
   );
@@ -380,7 +380,7 @@ const HTML = `<!DOCTYPE html>
     if (f?.type.startsWith('image/')) { imageBlob = f; showPreview(f); }
   });
 
-  async function analyze() {
+  async function analyze(isRetry = false) {
     if (!imageBlob) return;
     const btn = document.getElementById('analyzeBtn');
     const card = document.getElementById('resultsCard');
@@ -400,10 +400,15 @@ const HTML = `<!DOCTYPE html>
       const data = await resp.json();
 
       if (data.rateLimited) {
-        let secs = data.retryAfter || 60;
+        if (isRetry) {
+          results.innerHTML = \`<div class="error-box">Rate limit still active. Please wait a minute or two, then click Analyze again.</div>\`;
+          btn.disabled = false;
+          return;
+        }
+        let secs = (data.retryAfter || 60) + 15;
         const tick = () => {
-          results.innerHTML = \`<div class="error-box">Gemini rate limit hit. Retrying in \${secs}s&hellip;</div>\`;
-          if (secs <= 0) { analyze(); return; }
+          results.innerHTML = \`<div class="error-box" style="text-align:center">Gemini rate limit hit &mdash; retrying in <strong>\${secs}s</strong>&hellip;<br><span style="font-size:0.8rem;color:#888">Free tier: 20 requests/min</span></div>\`;
+          if (secs <= 0) { analyze(true); return; }
           secs--; setTimeout(tick, 1000);
         };
         tick();
