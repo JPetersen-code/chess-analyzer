@@ -90,7 +90,7 @@ async function extractFen(base64, mimeType, apiKey) {
         contents: [{
           parts: [
             {
-              text: 'This is a chess board screenshot. Identify every piece on every square, then output ONLY the FEN notation string (example: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"). Output nothing else — no explanation, no markdown, just the raw FEN string. If you cannot determine the position, output only the word UNKNOWN.',
+              text: 'This is a chess board screenshot. Carefully examine every single square of the 8x8 board. White pieces are uppercase (K Q R B N P), black pieces are lowercase (k q r b n p), empty squares are numbers. Rank 8 is the top row (black side), rank 1 is the bottom row (white side). File a is the leftmost column. Output ONLY the FEN string for this position (example: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"). Each rank must total exactly 8 squares. Output nothing else — no explanation, no markdown, just the raw FEN string. If you cannot determine the position, output only the word UNKNOWN.',
             },
             { inline_data: { mime_type: mimeType, data: base64 } },
           ],
@@ -416,7 +416,7 @@ const HTML = `<!DOCTYPE html>
     let html = '<div class="chess-board">';
     for (let r = 0; r < 8; r++) {
       for (let f = 0; f < 8; f++) {
-        const light = (r + f) % 2 === 1;
+        const light = (r + f) % 2 === 0;
         const isFrom = r === fr && f === ff;
         const isTo   = r === tr && f === tf;
         const p = (board[r] || [])[f] || null;
