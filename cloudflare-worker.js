@@ -51,15 +51,15 @@ async function handleAnalyze(request, env) {
   if (!imageBase64 || !mimeType) return json({ error: 'Missing image data' }, 400);
 
   // 1. Extract FEN via Gemini Vision
-  let fen;
+  let fen, rawGemini;
   try {
-    fen = await extractFen(imageBase64, mimeType, env.GEMINI_API_KEY);
+    ({ fen, raw: rawGemini } = await extractFen(imageBase64, mimeType, env.GEMINI_API_KEY));
   } catch (err) {
     return json({ error: err.message }, 502);
   }
 
   if (!fen || fen === 'UNKNOWN' || !isValidFen(fen)) {
-    return json({ error: "Couldn't read the chess position from this screenshot. Make sure the full board is visible and the image is clear." }, 422);
+    return json({ error: "Couldn't read the chess position from this screenshot. Make sure the full board is visible and the image is clear.", rawGemini }, 422);
   }
 
   // 2. Get top 3 moves from Lichess cloud eval
@@ -69,7 +69,7 @@ async function handleAnalyze(request, env) {
   );
 
   if (lichessResp.status === 404) {
-    return json({ fen, lichessNotFound: true });
+    return json({ fen, rawGemini, lichessNotFound: true });
   }
 
   if (!lichessResp.ok) {
@@ -77,32 +77,21 @@ async function handleAnalyze(request, env) {
   }
 
   const moves = await lichessResp.json();
-  return json({ fen, moves });
+  return json({ fen, rawGemini, moves });
 }
 
 async function extractFen(base64, mimeType, apiKey) {
-  const prompt = `You are a chess expert analyzing a chess board screenshot.
+  const prompt = `You are analyzing a chess board screenshot. Output the FEN (Forsyth-Edwards Notation) string for the position shown.
 
-First, determine board orientation: look at which side has the king and queen. White pieces are light-colored, black pieces are dark-colored. The board may be shown from white's perspective (white at bottom) or black's perspective (black at bottom).
+Rules:
+- Uppercase = white pieces (K Q R B N P), lowercase = black pieces (k q r b n p)
+- White pieces are the lighter-colored pieces, black pieces are darker
+- The board may have white at the bottom OR black at the bottom — determine orientation first
+- Rank 8 is black's back rank, rank 1 is white's back rank
+- Files go a (left from white's view) to h (right from white's view)
 
-Then map every square. Output exactly 8 lines representing ranks 8 down to 1 (top of image to bottom IF white is at bottom, reversed if black is at bottom). Each line has 8 characters separated by spaces, representing files a through h (left to right from white's perspective).
-
-Characters:
-- White: K Q R B N P
-- Black: k q r b n p
-- Empty: .
-
-Example output for starting position (white at bottom):
-r n b q k b n r
-p p p p p p p p
-. . . . . . . .
-. . . . . . . .
-. . . . . . . .
-. . . . . . . .
-P P P P P P P P
-R N B Q K B N R
-
-Output ONLY the 8 lines. No other text.`;
+Output ONLY the FEN piece-placement string (the first field only, e.g. rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR).
+No other text. No spaces around slashes.`;
 
   const resp = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -111,7 +100,7 @@ Output ONLY the 8 lines. No other text.`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-        generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 3000 } },
+        generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 5000 } },
       }),
     }
   );
@@ -122,11 +111,14 @@ Output ONLY the 8 lines. No other text.`;
   }
 
   const data = await resp.json();
-  // With thinking mode, parts may include a thought part first; find the text part
   const parts = data?.candidates?.[0]?.content?.parts || [];
   const textPart = parts.find(p => p.text && !p.thought) || parts[parts.length - 1] || {};
-  const text = (textPart.text || '').trim();
-  return gridToFen(text);
+  const raw = (textPart.text || '').trim().replace(/```[^\n]*\n?/g, '').replace(/`/g, '').trim();
+
+  // Build full FEN from piece placement only
+  const placement = raw.split('\n')[0].trim();
+  const fen = placement + ' w - - 0 1';
+  return { fen: isValidFen(fen) ? fen : 'UNKNOWN', raw };
 }
 
 function gridToFen(grid) {
@@ -381,13 +373,17 @@ const HTML = `<!DOCTYPE html>
 
       const data = await resp.json();
 
+      const debugHtml = data.rawGemini
+        ? \`<details style="margin-top:12px"><summary style="color:#555;font-size:0.75rem;cursor:pointer">Raw Gemini output (debug)</summary><pre style="font-size:0.7rem;color:#6fdc8c;background:#0a1a0a;padding:8px;border-radius:6px;margin-top:6px;overflow-x:auto;white-space:pre-wrap">\${data.rawGemini.replace(/</g,'&lt;')}</pre></details>\`
+        : '';
+
       if (data.error) {
-        results.innerHTML = \`<div class="error-box">\${data.error}</div>\`;
+        results.innerHTML = \`<div class="error-box">\${data.error}</div>\${debugHtml}\`;
         return;
       }
 
       const { fen, moves, lichessNotFound } = data;
-      const fenHtml = \`<div class="fen-label">Detected position</div><div class="fen-box">\${fen}</div>\`;
+      const fenHtml = \`<div class="fen-label">Detected position</div><div class="fen-box">\${fen}</div>\${debugHtml}\`;
 
       if (lichessNotFound) {
         results.innerHTML = fenHtml + '<p class="status-text"><span class="spinner"></span>Running Stockfish engine locally&hellip;</p>';
