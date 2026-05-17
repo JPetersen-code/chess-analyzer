@@ -356,7 +356,7 @@ const HTML = `<!DOCTYPE html>
         results.innerHTML = fenHtml + '<p class="status-text"><span class="spinner"></span>Running Stockfish engine locally&hellip;</p>';
         try {
           const pvs = await analyzeWithStockfish(fen);
-          results.innerHTML = fenHtml + '<div class="depth-info">Stockfish local analysis</div>' + renderCards(pvs, fen);
+          results.innerHTML = fenHtml + '<div class="fen-label" style="margin-bottom:4px">Detected position</div>' + renderCurrentBoard(fen) + '<div class="depth-info" style="margin-top:12px">Stockfish local analysis — top 3 moves</div>' + renderCards(pvs, fen);
         } catch (err) {
           results.innerHTML = fenHtml + \`<div class="error-box">Engine error: \${err.message}</div>\`;
         }
@@ -365,7 +365,7 @@ const HTML = `<!DOCTYPE html>
 
       const pvs = moves.pvs || [];
       const depth = moves.depth ? \`<div class="depth-info">Depth \${moves.depth} &middot; <a href="https://lichess.org/analysis/\${encodeURIComponent(fen)}" target="_blank">Open in Lichess</a></div>\` : '';
-      results.innerHTML = fenHtml + depth + renderCards(pvs, fen);
+      results.innerHTML = fenHtml + '<div class="fen-label" style="margin-bottom:4px">Detected position</div>' + renderCurrentBoard(fen) + '<div class="depth-info" style="margin-top:12px">' + (depth || '') + 'Top 3 moves</div>' + renderCards(pvs, fen);
 
     } catch (err) {
       results.innerHTML = \`<div class="error-box">Request failed: \${err.message}</div>\`;
@@ -424,6 +424,22 @@ const HTML = `<!DOCTYPE html>
         let cls = light ? 'sq-light' : 'sq-dark';
         if (isFrom) cls += ' sq-from';
         if (isTo)   cls += ' sq-to';
+        if (p) cls += isWhite ? ' pc-w' : ' pc-b';
+        html += \`<div class="\${cls}">\${p && SYM[p] ? SYM[p] : ''}</div>\`;
+      }
+    }
+    return html + '</div>';
+  }
+
+  function renderCurrentBoard(baseFen) {
+    const board = parseFenBoard(baseFen);
+    let html = '<div class="chess-board">';
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const light = (r + f) % 2 === 0;
+        const p = (board[r] || [])[f] || null;
+        const isWhite = p && p === p.toUpperCase();
+        let cls = light ? 'sq-light' : 'sq-dark';
         if (p) cls += isWhite ? ' pc-w' : ' pc-b';
         html += \`<div class="\${cls}">\${p && SYM[p] ? SYM[p] : ''}</div>\`;
       }
